@@ -1,0 +1,48 @@
+# Utiliza una imagen oficial de Python como imagen padre
+FROM python:3.10.0
+
+# Establece el directorio de trabajo en el contenedor
+WORKDIR /usr/src/app
+
+# Instala Google Chrome
+RUN apt-get update && apt-get install -y gnupg2 && \
+    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' && \
+    apt-get update && apt-get install -y google-chrome-stable
+
+# Instala ChromeDriver versión 119
+#RUN wget -N https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/119.0.6045.105/linux64/chromedriver-linux64.zip -P ~/ && \
+#    unzip ~/chromedriver-linux64.zip -d ~/ && \
+#    rm ~/chromedriver-linux64.zip && \
+#    mv -f ~/chromedriver-linux64/chromedriver /usr/local/share/ && \
+#    chmod +x /usr/local/share/chromedriver && \
+#    ln -s /usr/local/share/chromedriver /usr/local/bin/chromedriver
+
+# Instala ChromeDriver versión 121
+RUN wget -N https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/121.0.6167.85/linux64/chromedriver-linux64.zip -P ~/ && \
+    unzip ~/chromedriver-linux64.zip -d ~/ && \
+    rm ~/chromedriver-linux64.zip && \
+    mv -f ~/chromedriver-linux64/chromedriver /usr/local/share/ && \
+    chmod +x /usr/local/share/chromedriver && \
+    ln -s /usr/local/share/chromedriver /usr/local/bin/chromedriver
+
+
+
+
+# Copia los archivos requerimientos.txt en el contenedor en /usr/src/app
+COPY requerimientos.txt ./
+
+# Instala las dependencias del proyecto
+RUN pip install --no-cache-dir -r requerimientos.txt
+
+# Copia el resto del código fuente en el contenedor
+COPY . .
+
+# Comando para ejecutar el script de Python
+#CMD [ "python", "./ticketplus_scraper3.py" ]
+
+# Expone el puerto 8080
+#EXPOSE 8080
+
+#mantenemos abierta 
+CMD ["tail", "-f", "/dev/null"]

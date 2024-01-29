@@ -1,0 +1,30 @@
+version: "3.8"
+services:
+  app:
+    #build: .
+    image: jdominguezhub/ticketplus-find:1.0.0
+    container_name: ticket_plus_app
+    #depends_on:
+    #  - mongodb  
+    env_file:
+      - .env
+    volumes:
+      - .:/usr/src/app  # Mapea el directorio actual al directorio /usr/src/app en el contenedor
+    ports:
+      - "8080:8080"  # Mapea el puerto 8080 del host al puerto 8080 del contenedor
+#  mongodb:
+#    image: mongo:7.0.4
+#    container_name: mongo_db_ticketplus
+#    environment:
+#      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+#      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+#    env_file:
+#      - .env
+#    ports:
+#      - "27020:27017"  # Expone el puerto 27017 de MongoDB al puerto 27017 de tu máquina local
+#    volumes:
+#      - mongodb_data:/data/db
+#      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+#
+#volumes:
+#  mongodb_data:
