@@ -35,29 +35,13 @@ mongodb_database  = os.getenv("MONGODB_DATABASE", "event_find_db")
 #variables de entorno aws
 bucket_name       = os.getenv("BUCKET_NAME", "event-find")
 # Crear un cliente de S3
-#s3 = boto3.client('s3')
+
 
 s3 = boto3.client(
     's3',
     aws_access_key_id       = os.getenv("AWS_ACCESS_KEY_ID"),
     aws_secret_access_key   = os.getenv("AWS_SECRET_ACCESS_KEY")
 )
-
-
-#AWS_ACCESS_KEY_ID="tu_id_de_clave_de_acceso"
-#AWS_SECRET_ACCESS_KEY="tu_clave_de_acceso_secreta"
-
-
-
-# Construir la URI de conexión
-
-# Construir la URI de conexión
-#mongodb_uri = f"mongodb+srv://{mongodb_user}:{mongodb_password}@{mongodb_host}"
-#if mongodb_port:
-#    mongodb_uri += f":{mongodb_port}"
-#mongodb_uri += f"/{mongodb_database}"
-#mongodb_uri       = f"mongodb://{mongodb_user}:{mongodb_password}@{mongodb_host}:{mongodb_port}"  este era el local
-
 
 # Construir la URI de conexión considerando si el puerto está presente o no
 if mongodb_port:
@@ -85,22 +69,11 @@ for idx, region in enumerate(regiones, start=1):
     list_regiones[idx] = {"nombre": region['nombre'], "link": region['link']}
 
 
-
-#esta no es necesaria en docker
-#chrome_driver_path = r"C:\Users\juand\Desktop\EventFind\herramientas_desarrollo\chromedriver-win64\chromedriver.exe"
-#options = webdriver.ChromeOptions()
-
 # Configura las opciones de Chrome para el modo headless
 chrome_options = Options()
 chrome_options.add_argument("--headless")  # Ejecuta Chrome en modo headless
 chrome_options.add_argument("--no-sandbox")  # Desactiva el modo sandbox para Chrome
 chrome_options.add_argument("--disable-dev-shm-usage")  # Evita problemas en contenedores
-
-#no van en docker
-#options.add_argument('--incognito')
-#options.add_argument('--ignore-certificate-errors')
-#service = Service(executable_path=chrome_driver_path, options=options)
-#driver = webdriver.Chrome(service=service)
 
 # Inicializa el driver de Chrome con las opciones configuradas
 driver = webdriver.Chrome(options=chrome_options)
@@ -115,31 +88,12 @@ id_evento = 0
 for id_region, region in list_regiones.items():
     url = region["link"]
 
-    #pprint(url);
-    #exit();
-
-
     driver.get(url)
-
     html_content = driver.page_source
     soup = BeautifulSoup(html_content, "html.parser")
-    #event_divs = soup.find_all("div", {"class": "col-xs-6 col-md-3 m-b-xs p-x-xs element-item"})
-
-    #event_divs = soup.find_all("div", {"class": "col-xs-6 col-md-3 m-b-xs p-x-xs element-item"}, 
-    #                       lambda tag: not tag.has_attr('style') or tag['style'] != "display: none;")
     
     event_divs = [div for div in soup.find_all("div", {"class": "col-xs-6 col-md-3 m-b-xs p-x-xs element-item"})
               if div.get('style') != "display: none;"]
-    
-
-
-    #event_divs = [div for div in soup.find_all("div", {"class": "col-xs-6 col-md-3 m-b-xs p-x-xs element-item"})
-    #   if div.get('style') != "display: none;"]
-
-
-    #event_divs = soup.find_all("div", lambda tag: tag.has_attr('class') and 
-    #                       "col-xs-6 col-md-3 m-b-xs p-x-xs element-item" in tag['class'] and 
-    #                       (not tag.has_attr('style') or (tag.has_attr('style') and tag['style'] != "display: none;")))
 
     event_links = []
     for div in event_divs:
@@ -153,10 +107,8 @@ for id_region, region in list_regiones.items():
         id_evento += 1
         driver.get(link)
         time.sleep(3)
-
         page_content = driver.page_source
         soup = BeautifulSoup(page_content, 'html.parser')
-
         script_element = soup.find('script', {'type': 'application/ld+json'})
 
         try:
@@ -184,55 +136,39 @@ for id_region, region in list_regiones.items():
         detalle_evento = help.limpiar_cadena(event_json['description'].replace('\n', ' '))
         imagen_url = event_json['image'].replace("https://ticketplus.cl/", "", 1) 
 
-        #pprint(imagen_url)
-        #exit();
-
-
         evento_url = event_json['url']
         latitud = event_json['location']['geo']['latitude']
         longitud = event_json['location']['geo']['longitude']
 
         #img_element = soup.find('img', {'alt': titulo})
         img_element = imagen_url
-
-
         if img_element:
             #img_url = img_element['src'].split('?')[0]
             img_url = img_element.split('?')[0]
             extension_img = help.obtener_extension(img_url)
 
             #subir a s3 borrar parte local
-
             #en la siguiente local borrar
             carpeta_regional = help.formatear_nombre(f'eventos_{id_region}_{region["nombre"]}')
             carpeta_imagenes = os.path.join(carpeta_fecha, carpeta_regional)
+
             os.makedirs(carpeta_imagenes, exist_ok=True)
             nombre_imagen = help.formatear_nombre(f'eventos_{id_region}_{region["nombre"]}_{id_evento}{extension_img}')
             ruta_imagen = os.path.join(carpeta_imagenes, nombre_imagen)
             help.descargar_imagen(img_url, ruta_imagen)
-
-
 
             # Define la ruta en S3 donde quieres guardar la imagen
             s3_file_path = f"eventos/{carpeta_fecha}/{carpeta_regional}/{nombre_imagen}"
             print(s3_file_path)
 
             # Subir la imagen a S3
-            #help.subir_imagen_s3(ruta_imagen, bucket_name, s3_file_path, s3)
             help.subir_imagen_s3(img_url, bucket_name, s3_file_path, s3)
-
 
 
             # Actualiza el JSON con la ruta de la imagen en S3
             ruta_imagen_json = f"{s3_file_path}"
-
             ruta_imagen_json_s23 = f"https://event-find.s3.amazonaws.com/{s3_file_path}"
 
-
-            #print("ruta_imagen_json")
-            #print(ruta_imagen_json_s23)
-
-           
 
             # Cambiar el formato de la ruta de la imagen en el JSON
             ruta_imagen_json = f"assets/eventos/{carpeta_fecha}/images/{carpeta_regional}/{nombre_imagen}".replace("\\", "/")
@@ -241,10 +177,6 @@ for id_region, region in list_regiones.items():
 
         latitud = event_json['location']['geo']['latitude']
         longitud = event_json['location']['geo']['longitude']
-
-
-
-        #https://event-find.s3.amazonaws.com/eventos/
 
         evento = {
             'titulo': titulo,
@@ -262,6 +194,7 @@ for id_region, region in list_regiones.items():
             'long': longitud,  # Agrega la longitud
             'logo' : 'logo_ticketplus.png',
             'fecha_obtencion' : carpeta_fecha,
+            'activo' : True,
             'ubicacion_geo': {  # Agrega la ubicación en formato GeoJSON
                 'type': 'Point',
                 'coordinates': [float(longitud), float(latitud)]
@@ -292,3 +225,21 @@ for id_region, region in list_regiones.items():
     #    f.write('\n')
 
 driver.quit()
+
+
+
+def verificar_y_actualizar_evento(evento, coleccion_eventos):
+    resultado = coleccion_eventos.find_one_and_update(
+        {"evento_url": evento['evento_url']},
+        {"$set": {"activo": True}},
+        upsert=True
+    )
+    if resultado is None:
+        coleccion_eventos.insert_one(evento)
+
+
+def marcar_eventos_inactivos(eventos_activos_urls, coleccion_eventos):
+    coleccion_eventos.update_many(
+        {"evento_url": {"$nin": eventos_activos_urls}},
+        {"$set": {"activo": False}}
+    )
