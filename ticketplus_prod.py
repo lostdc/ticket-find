@@ -82,8 +82,13 @@ hoy = datetime.datetime.now()
 carpeta_fecha = hoy.strftime("%d-%m-%Y")
 os.makedirs(carpeta_fecha, exist_ok=True)
 
+fecha_actual = datetime.datetime.now().strftime("%d-%m-%Y")
+
+
 eventos = []
 id_evento = 0
+eventos_activos_urls = []
+help.escribir_log("Inicio del proceso de scraping", fecha_actual)
 
 for id_region, region in list_regiones.items():
     url = region["link"]
@@ -98,6 +103,14 @@ for id_region, region in list_regiones.items():
     event_links = []
     for div in event_divs:
         link = div.find("a")["href"]
+        evento_url = f"https://ticketplus.cl{link}"
+        # Verifica si el evento ya existe en la base de datos
+        evento_existente = coleccion_eventos.find_one({"evento_url": evento_url})
+        if evento_existente:
+            # Si existe, actualiza solo el campo 'activo' a True y continua con el siguiente
+            coleccion_eventos.update_one({"_id": evento_existente["_id"]}, {"$set": {"activo": True}})
+            continue
+
         event_links.append(f"https://ticketplus.cl{link}")
 
     eventos = []
@@ -206,27 +219,11 @@ for id_region, region in list_regiones.items():
         # Acceder a la colección 'eventos'
         coleccion_eventos = db.eventos
         # Insertar el documento en la colección
+        help.verificar_y_actualizar_evento(evento, coleccion_eventos)
         coleccion_eventos.insert_one(evento)
-
 
 
 driver.quit()
+help.escribir_log("Finalización del proceso de scraping", fecha_actual)
 
 
-
-def verificar_y_actualizar_evento(evento, coleccion_eventos):
-    resultado = coleccion_eventos.find_one_and_update(
-        {"evento_url": evento['evento_url']},
-        {"$set": {"activo": True}},
-        upsert=True
-    )
-    if resultado is None:
-        coleccion_eventos.insert_one(evento)
-
-
-
-def marcar_eventos_inactivos(eventos_activos_urls, coleccion_eventos):
-    coleccion_eventos.update_many(
-        {"evento_url": {"$nin": eventos_activos_urls}},
-        {"$set": {"activo": False}}
-    )

@@ -5,6 +5,7 @@ import requests
 import shutil
 import time
 import re
+import datetime
 
 def limpiar_cadena(cadena):
     # Reemplaza los caracteres no válidos con espacios en blanco
@@ -87,3 +88,12 @@ def obtener_extension(url):
     nombre_archivo = os.path.basename(url)
     extension = os.path.splitext(nombre_archivo)[1]
     return extension
+
+
+def escribir_log(mensaje, nombre_carpeta_log):
+    fecha_hora_actual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    nombre_archivo_log = f"log_{nombre_carpeta_log}.txt"
+    ruta_archivo_log = os.path.join(nombre_carpeta_log, nombre_archivo_log)
+    
+    with open(ruta_archivo_log, 'a', encoding='utf-8') as archivo_log:
+        archivo_log.write(f"{fecha_hora_actual} - {mensaje}\n")
