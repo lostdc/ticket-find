@@ -208,21 +208,7 @@ for id_region, region in list_regiones.items():
         # Insertar el documento en la colección
         coleccion_eventos.insert_one(evento)
 
-        exit()
 
-
-    
-    if(id_region == 4):   
-        pprint(eventos);
-        exit();
-    
-
-    #nombre_archivo_json = help.formatear_nombre(f'eventos_{id_region}_{region["nombre"]}.json')
-    #nombre_archivo = os.path.join(carpeta_fecha, nombre_archivo_json)
-    #with open(nombre_archivo, 'w', encoding='utf-8') as f:
-    #    # Escribe la lista de eventos en el archivo JSON
-    #    json.dump(eventos, f, ensure_ascii=False, indent=4)
-    #    f.write('\n')
 
 driver.quit()
 
@@ -236,6 +222,7 @@ def verificar_y_actualizar_evento(evento, coleccion_eventos):
     )
     if resultado is None:
         coleccion_eventos.insert_one(evento)
+
 
 
 def marcar_eventos_inactivos(eventos_activos_urls, coleccion_eventos):

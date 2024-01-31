@@ -5,7 +5,7 @@ FROM python:3.10.0
 WORKDIR /usr/src/app
 
 # Instala las dependencias necesarias para Google Chrome y Chromedriver.
-RUN apt-get update && apt-get install -y gnupg2 wget unzip && \
+RUN apt-get update && apt-get install -y gnupg2 wget unzip cron && \
     wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
     sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' && \
     apt-get update && apt-get install -y google-chrome-stable
@@ -40,5 +40,12 @@ httpd.serve_forever()' > health_check.py
 # Expone el puerto 8080 para el health check.
 EXPOSE 8080
 
-# Ejecuta el servidor de health check y mantiene el contenedor corriendo.
-CMD ["python", "./health_check.py"]
+# Crea un script de shell para ejecutar tu script Python.
+RUN echo '#!/bin/sh\npython3 /usr/src/app/ticketplus_prod.py' > /usr/src/app/run_script.sh
+RUN chmod +x /usr/src/app/run_script.sh
+
+# Añade el trabajo cron
+RUN echo "0 2 * * * /usr/src/app/run_script.sh >> /var/log/cron.log 2>&1" | crontab -
+
+# Inicia cron y el servidor de health check.
+CMD cron && python ./health_check.py
