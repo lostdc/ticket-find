@@ -219,8 +219,6 @@ for id_region, region in list_regiones.items():
         #aqui realizaremos un corte para ingresar solo uno y probar
         # Acceder a la colección 'eventos'
         coleccion_eventos = db.eventos
-        # Insertar el documento en la colección
-        help.verificar_y_actualizar_evento(evento, coleccion_eventos)
         coleccion_eventos.insert_one(evento)
 
 
