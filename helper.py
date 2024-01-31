@@ -91,9 +91,19 @@ def obtener_extension(url):
 
 
 def escribir_log(mensaje, nombre_carpeta_log):
+    fecha_actual = datetime.datetime.now().strftime("%Y-%m-%d")
+    carpeta_log = os.path.join("logs", fecha_actual, nombre_carpeta_log)
+    os.makedirs(carpeta_log, exist_ok=True)
+    
     fecha_hora_actual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     nombre_archivo_log = f"log_{nombre_carpeta_log}.txt"
-    ruta_archivo_log = os.path.join(nombre_carpeta_log, nombre_archivo_log)
+    ruta_archivo_log = os.path.join(carpeta_log, nombre_archivo_log)
     
+    mensaje_completo = f"{fecha_hora_actual} - {mensaje}\n"
+
+    # Escribir en el archivo de log
     with open(ruta_archivo_log, 'a', encoding='utf-8') as archivo_log:
-        archivo_log.write(f"{fecha_hora_actual} - {mensaje}\n")
+        archivo_log.write(mensaje_completo)
+
+    # Imprimir el mensaje en la consola
+    print(mensaje_completo)
