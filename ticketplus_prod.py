@@ -63,6 +63,7 @@ list_regiones = {}
 
 # Traemos los datos de la base de datos MongoDB
 regiones = list(db["regiones"].find())
+coleccion_eventos = db.eventos
 
 # Iteramos sobre los datos de la base de datos y los agregamos a list_regiones
 for idx, region in enumerate(regiones, start=1):
