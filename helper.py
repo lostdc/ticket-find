@@ -6,6 +6,7 @@ import shutil
 import time
 import re
 import datetime
+import html
 
 
 def limpiar_cadena(cadena):
@@ -20,6 +21,21 @@ def formatear_nombre(nombre):
     nombre = nombre.replace(" ", "_")
     nombre = unicodedata.normalize("NFKD", nombre).encode("ASCII", "ignore").decode("ASCII")
     return nombre
+
+def quitar_html(nombre):
+    # Decodifica entidades HTML
+    nombre = html.unescape(nombre)
+    return nombre
+
+def limpiar_y_formatear_nombre(nombre):
+    # Decodifica entidades HTML
+    nombre = html.unescape(nombre)
+    # Luego aplica la función formatear_nombre
+    nombre = nombre.lower()
+    nombre = nombre.replace(" ", "_")
+    nombre = unicodedata.normalize("NFKD", nombre).encode("ASCII", "ignore").decode("ASCII")
+    return nombre
+
 
 def formatear_fecha(fecha_str):
     formatos_fecha = [
@@ -113,3 +129,22 @@ def escribir_log(mensaje):
 
     # Imprimir el mensaje en la consola
     print(mensaje_completo)
+
+
+
+def limpiar_nombre_archivo(nombre):
+    # Decodificar entidades HTML
+    nombre = html.unescape(nombre)
+    
+    # Reemplazar caracteres especiales con un subrayado o eliminarlos
+    nombre = nombre.replace('"', '')  # Elimina comillas dobles
+    nombre = nombre.replace("'", '')  # Elimina apóstrofos
+    nombre = nombre.replace('&', 'y')  # Reemplaza '&' con 'y'
+    
+    # Opcional: reemplazar espacios con guiones para mejorar la legibilidad de la URL
+    nombre = nombre.replace(' ', '_')
+    
+    # Eliminar o reemplazar otros caracteres especiales según sea necesario
+    # nombre = re.sub(r'[^\w\s-]', '', nombre)  # Ejemplo usando expresiones regulares para mantener solo letras, números, guiones y espacios
+    
+    return nombre

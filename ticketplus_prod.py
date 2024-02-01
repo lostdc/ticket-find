@@ -42,9 +42,9 @@ def procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, intentos=3, upda
         else:
                 print("El evento no existe lo registramos")
                 # Procesar la descarga de la imagen y subirla a S3
-                img_url = evento['imagen']
-                img_url = img_url.split('?')[0]  # Limpia la URL de la imagen
-                nombre_imagen = help.formatear_nombre(f"evento_{evento['id_region']}_{evento['titulo']}.jpg")
+                img_url = evento['img_ticketplus']
+                #img_url = img_url.split('?')[0]  # Limpia la URL de la imagen
+                nombre_imagen = help.limpiar_y_formatear_nombre(f"evento_{evento['id_region']}_{evento['titulo']}.jpg")
                 s3_file_path = f"eventos/{carpeta_fecha}/{nombre_imagen}"
 
                 # Subir la imagen a S3 y actualizar la ruta de la imagen en el evento
@@ -57,7 +57,7 @@ def procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, intentos=3, upda
                 coleccion_eventos.insert_one(evento)
     except Exception as e:
         if intentos < max_intentos:
-            help.escribir_log("reintento: "+intentos)
+            help.escribir_log("reintento: " + str(intentos))
             time.sleep(2 ** intentos)  # Backoff exponencial
             procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, intentos + 1)
         else:
@@ -148,7 +148,7 @@ try:
             event_links.append(evento_url)
 
         eventos = []
-        id_evento = 0  # Inicializa el contador para cada región
+        id_evento = 0  # Inicializa el contador para cFada región
 
         print("event links")
         pprint(event_links)
@@ -200,14 +200,17 @@ try:
 
                 #subir a s3 borrar parte local
                 #en la siguiente local borrar
-                carpeta_regional = help.formatear_nombre(f'eventos_{id_region}_{region["nombre"]}')
+                carpeta_regional = help.limpiar_y_formatear_nombre(f'eventos_{id_region}_{region["nombre"]}')
 
 
-                #carpeta_imagenes = os.path.join(carpeta_fecha, carpeta_regional)
+                carpeta_imagenes = os.path.join(carpeta_fecha, carpeta_regional)
                 #os.makedirs(carpeta_imagenes, exist_ok=True)
 
 
-                nombre_imagen = help.formatear_nombre(f'eventos_{id_region}_{region["nombre"]}_{id_evento}{extension_img}')
+                nombre_imagen = help.limpiar_y_formatear_nombre(f'eventos_{id_region}_{region["nombre"]}_{id_evento}{extension_img}')
+
+
+            
                 #ruta_imagen = os.path.join(carpeta_imagenes, nombre_imagen)
                 #help.descargar_imagen(img_url, ruta_imagen)
 
@@ -232,16 +235,17 @@ try:
             longitud = event_json['location']['geo']['longitude']
 
             evento = {
-                'titulo': titulo,
+                'titulo': help.quitar_html(titulo),
                 'fecha': fecha_hora.split('T')[0],
                 'hora': fecha_hora.split('T')[1] if len(fecha_hora.split('T')) > 1 else '',
                 'id_region': id_region,
                 'region': region["nombre"],
                 'direccionTitulo': direccion_titulo,
                 'direccionDetalle': direccion_detalle,
-                'detalleEvento': detalle_evento,
+                'detalleEvento': help.quitar_html(detalle_evento),
                 #'imagen': ruta_imagen_json,  # Actualiza el valor de la propiedad imagen en el JSON
                 'imagen' : ruta_imagen_json_s23,
+                'img_ticketplus' : img_url,
                 'evento_url': link,
                 'lat': latitud,  # Agrega la latitud
                 'long': longitud,  # Agrega la longitud
@@ -256,6 +260,9 @@ try:
 
 
             # Llamar a procesar_evento en lugar de la lógica de inserción directa
+
+            #aqui falta img_url porque la saca de evento que es incorrecto no hay nada que descargar de hay
+
             procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, 3,False)
 
 
