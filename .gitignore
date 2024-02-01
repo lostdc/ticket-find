@@ -1,6 +1,7 @@
-Dockerfile
-docker-compose.yml
-.git
+__pycache__/
+# Logs
+logs
+*.log
 
 # OS
 .DS_Store

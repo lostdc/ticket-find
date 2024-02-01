@@ -7,6 +7,7 @@ import time
 import re
 import datetime
 
+
 def limpiar_cadena(cadena):
     # Reemplaza los caracteres no válidos con espacios en blanco
     cadena_limpia = re.sub(r'[^\x00-\x7F]+', ' ', cadena)
@@ -90,16 +91,21 @@ def obtener_extension(url):
     return extension
 
 
-def escribir_log(mensaje, nombre_carpeta_log):
-    fecha_actual = datetime.datetime.now().strftime("%Y-%m-%d")
-    carpeta_log = os.path.join("logs", fecha_actual, nombre_carpeta_log)
+
+def escribir_log(mensaje):
+    fecha_actual = datetime.datetime.now()
+    fecha_formateada = fecha_actual.strftime("%d-%m-%Y")
+
+    # Crear la ruta de la carpeta siguiendo la estructura log/log-30-01-2024/
+    carpeta_log = os.path.join("log", f"log-{fecha_formateada}")
     os.makedirs(carpeta_log, exist_ok=True)
-    
-    fecha_hora_actual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    nombre_archivo_log = f"log_{nombre_carpeta_log}.txt"
+
+    # Nombre del archivo de log como log_fecha.txt
+    nombre_archivo_log = f"log_{fecha_actual.strftime('%Y-%m-%d')}.txt"
     ruta_archivo_log = os.path.join(carpeta_log, nombre_archivo_log)
-    
-    mensaje_completo = f"{fecha_hora_actual} - {mensaje}\n"
+
+    # Mensaje completo con fecha y hora
+    mensaje_completo = f"{fecha_actual.strftime('%Y-%m-%d %H:%M:%S')} - {mensaje}\n"
 
     # Escribir en el archivo de log
     with open(ruta_archivo_log, 'a', encoding='utf-8') as archivo_log:

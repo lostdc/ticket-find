@@ -22,42 +22,58 @@ from pprint import pprint
 from dotenv import load_dotenv
 import pymongo
 import boto3
+from urllib.parse import urljoin
+from mongo_helper import conectar_mongo
+from s3_helper import conectar_s3, subir_imagen_s3
+
+
+
+def procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, intentos=3, update = False ,evento_existente =False ):
+    max_intentos = 5
+    try:
+        coleccion_eventos = db.eventos
+        # Verificar si el evento ya existe
+        #print("evento a insertar")
+        #pprint(evento)
+
+        if(update):
+            coleccion_eventos.update_one({"_id": evento_existente["_id"]}, {"$set": {"activo": True}})
+            help.escribir_log("El evento ya existe actualizamos")
+        else:
+                print("El evento no existe lo registramos")
+                # Procesar la descarga de la imagen y subirla a S3
+                img_url = evento['imagen']
+                img_url = img_url.split('?')[0]  # Limpia la URL de la imagen
+                nombre_imagen = help.formatear_nombre(f"evento_{evento['id_region']}_{evento['titulo']}.jpg")
+                s3_file_path = f"eventos/{carpeta_fecha}/{nombre_imagen}"
+
+                # Subir la imagen a S3 y actualizar la ruta de la imagen en el evento
+                subir_imagen_s3(img_url, bucket_name, s3_file_path, s3)
+                evento['imagen'] = f"https://event-find.s3.amazonaws.com/{s3_file_path}"
+
+                # Insertar el evento en MongoDB
+                print("este es el evento que insertaremos")
+                pprint(evento)
+                coleccion_eventos.insert_one(evento)
+    except Exception as e:
+        if intentos < max_intentos:
+            help.escribir_log("reintento: "+intentos)
+            time.sleep(2 ** intentos)  # Backoff exponencial
+            procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, intentos + 1)
+        else:
+            # Log de errores
+            help.escribir_log(f"Error en evento {evento['titulo']}: {str(e)}")
 
 
 
 try:
     # Cargar variables de entorno desde el archivo .env
     load_dotenv()
-    # Obtener las variables de entorno necesarias
-    mongodb_host      = os.getenv("MONGODB_HOST", "mongodb")
-    mongodb_port      = os.getenv("MONGODB_PORT", "27017")
-    mongodb_user      =  os.getenv("MONGODB_USER", "mongodb")
-    mongodb_password  = os.getenv("MONGODB_PASSWORD", "pass1234")
-    mongodb_database  = os.getenv("MONGODB_DATABASE", "event_find_db")
-
     #variables de entorno aws
     bucket_name       = os.getenv("BUCKET_NAME", "event-find")
     # Crear un cliente de S3
-
-
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id       = os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key   = os.getenv("AWS_SECRET_ACCESS_KEY")
-    )
-
-    # Construir la URI de conexión considerando si el puerto está presente o no
-    if mongodb_port:
-        mongodb_uri = f"mongodb://{mongodb_user}:{mongodb_password}@{mongodb_host}:{mongodb_port}/{mongodb_database}"
-    else:
-        mongodb_uri = f"mongodb+srv://{mongodb_user}:{mongodb_password}@{mongodb_host}/{mongodb_database}?retryWrites=true&w=majority"
-
-    # Construir la URI de conexión utilizando 'mongodb+srv://' y especificando 'admin' como base de datos para la autenticación
-    mongodb_uri = f"mongodb+srv://{mongodb_user}:{mongodb_password}@{mongodb_host}/admin?retryWrites=true&w=majority"
-
-    # Conectarse a la base de datos MongoDB
-    cliente = pymongo.MongoClient(mongodb_uri)
-    db = cliente[mongodb_database]
+    s3 = conectar_s3()
+    db = conectar_mongo()
 
     regiones = list(db["regiones"].find())
 
@@ -81,22 +97,20 @@ try:
 
     # Inicializa el driver de Chrome con las opciones configuradas
     driver = webdriver.Chrome(options=chrome_options)
-
     hoy = datetime.datetime.now()
+
     carpeta_fecha = hoy.strftime("%d-%m-%Y")
     os.makedirs(carpeta_fecha, exist_ok=True)
-
     fecha_actual = datetime.datetime.now().strftime("%d-%m-%Y")
-
 
     eventos = []
     id_evento = 0
     eventos_activos_urls = []
-    help.escribir_log("Inicio del proceso de scraping", fecha_actual)
+    help.escribir_log("Inicio del proceso de scraping")
 
     for id_region, region in list_regiones.items():
 
-        help.escribir_log(f"Iniciando scraping para la región: {region['nombre']}", fecha_actual)
+        help.escribir_log(f"Iniciando scraping para la región: {region['nombre']}")
         url = region["link"]
 
         driver.get(url)
@@ -109,19 +123,36 @@ try:
         event_links = []
         for div in event_divs:
             link = div.find("a")["href"]
-            evento_url = f"https://ticketplus.cl{link}"
+            base_url = "https://ticketplus.cl"
+
+            #ESTE ES EL LINK DEL EVENTO
+            evento_url = urljoin(base_url, link)
+            print("imprimimos el link con el evento")
+            pprint(evento_url)
+
+            #evento_url = f"https://ticketplus.cl{link}"
+
+         
             # Verifica si el evento ya existe en la base de datos
             evento_existente = coleccion_eventos.find_one({"evento_url": evento_url})
+            print("existe o no el evento? NONE no existe, objeto si existe ")
+            pprint(evento_existente)
             if evento_existente:
                 # Si existe, actualiza solo el campo 'activo' a True y continua con el siguiente
-                coleccion_eventos.update_one({"_id": evento_existente["_id"]}, {"$set": {"activo": True}})
-                help.escribir_log("El evento ya existe", evento_url)
+                
+                procesar_evento(None, s3, db, bucket_name, carpeta_fecha,3, True, evento_existente)
+                #coleccion_eventos.update_one({"_id": evento_existente["_id"]}, {"$set": {"activo": True}})
+                #help.escribir_log("El evento ya existe")
                 continue
 
-            event_links.append(f"https://ticketplus.cl{link}")
+            event_links.append(evento_url)
 
         eventos = []
         id_evento = 0  # Inicializa el contador para cada región
+
+        print("event links")
+        pprint(event_links)
+  
 
         for link in event_links:
             id_evento += 1
@@ -156,7 +187,7 @@ try:
             detalle_evento = help.limpiar_cadena(event_json['description'].replace('\n', ' '))
             imagen_url = event_json['image'].replace("https://ticketplus.cl/", "", 1) 
 
-            evento_url = event_json['url']
+            #evento_url = event_json['url'] este debe estar weando
             latitud = event_json['location']['geo']['latitude']
             longitud = event_json['location']['geo']['longitude']
 
@@ -184,7 +215,7 @@ try:
                 s3_file_path = f"eventos/{carpeta_fecha}/{carpeta_regional}/{nombre_imagen}"
 
                 # Subir la imagen a S3
-                help.subir_imagen_s3(img_url, bucket_name, s3_file_path, s3)
+                ###subir_imagen_s3(img_url, bucket_name, s3_file_path, s3)
 
 
                 # Actualiza el JSON con la ruta de la imagen en S3
@@ -211,7 +242,7 @@ try:
                 'detalleEvento': detalle_evento,
                 #'imagen': ruta_imagen_json,  # Actualiza el valor de la propiedad imagen en el JSON
                 'imagen' : ruta_imagen_json_s23,
-                'evento_url': evento_url,
+                'evento_url': link,
                 'lat': latitud,  # Agrega la latitud
                 'long': longitud,  # Agrega la longitud
                 'logo' : 'logo_ticketplus.png',
@@ -222,20 +253,29 @@ try:
                     'coordinates': [float(longitud), float(latitud)]
                 }
             }
-            eventos.append(evento)
+
+
+            # Llamar a procesar_evento en lugar de la lógica de inserción directa
+            procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, 3,False)
+
+
+            #eventos.append(evento)
 
             #aqui realizaremos un corte para ingresar solo uno y probar
             # Acceder a la colección 'eventos'
-            coleccion_eventos = db.eventos
-            coleccion_eventos.insert_one(evento)
+            #coleccion_eventos = db.eventos
+            #coleccion_eventos.insert_one(evento)
 
 
     driver.quit()
-    help.escribir_log("Finalización del proceso de scraping", fecha_actual)
+    help.escribir_log("Finalización del proceso de scraping")
 
 except Exception as e:
     fecha_actual = datetime.datetime.now().strftime("%d-%m-%Y")
-    help.escribir_log(f"Error general en el programa: {str(e)}", fecha_actual)
+    help.escribir_log(f"Error general en el programa: {str(e)}")
     raise
+
+
+
 
 
