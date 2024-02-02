@@ -15,20 +15,6 @@ from mongo_helper import conectar_mongo
 from s3_helper import conectar_s3, subir_imagen_s3
 
 
-def iniciar_webdriver(chrome_options, max_reintentos=3):
-    driver = None
-    for intento in range(max_reintentos):
-        try:
-            driver = webdriver.Chrome(options=chrome_options)
-            return driver
-        except Exception as e:
-            print(f"Error al iniciar WebDriver en intento {intento + 1}: {e}")
-            time.sleep(2 ** intento)  # Backoff exponencial
-            if driver:
-                driver.quit()
-                driver = None
-    raise Exception("No se pudo iniciar el WebDriver después de varios intentos.")
-
 
 def procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, intentos=3, update = False ,evento_existente =False ):
     max_intentos = 5
@@ -104,11 +90,13 @@ try:
 
     prefs = {"profile.managed_default_content_settings.images": 2}
     chrome_options.add_experimental_option("prefs", prefs)
+    chrome_options.add_argument('--single-process')  # Puede ayudar a reducir el uso de memoria en algunos casos
+    chrome_options.add_argument('--memory-pressure-off')
 
 
     # Inicializa el driver de Chrome con las opciones configuradas
     driver = webdriver.Chrome(options=chrome_options)
-    driver.set_page_load_timeout(60)  
+    driver.set_page_load_timeout(120)  
 
 
 
@@ -171,15 +159,13 @@ try:
 
         for link in event_links:
             try:
-                time.sleep(5)
-
+                #time.sleep(1)
                 #driver = webdriver.Chrome(options=chrome_options)
-                driver = iniciar_webdriver(chrome_options)
                 id_evento += 1
 
             
                 driver.get(link)
-                time.sleep(3)
+                time.sleep(6)
                 page_content = driver.page_source
                 soup = BeautifulSoup(page_content, 'html.parser')
                 script_element = soup.find('script', {'type': 'application/ld+json'})
@@ -299,7 +285,8 @@ try:
                 # Registra el error como sea apropiado
 
             finally:
-                driver.quit()
+                print("terminamos con este evento")
+                #driver.quit()
                  
 
     #driver.quit()
