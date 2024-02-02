@@ -14,6 +14,7 @@ from urllib.parse import urljoin
 from mongo_helper import conectar_mongo
 from s3_helper import conectar_s3, subir_imagen_s3
 import gc
+from selenium.common.exceptions import WebDriverException
 
 
 
@@ -54,6 +55,27 @@ def procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, intentos=3, upda
             help.escribir_log(f"Error en evento {evento['titulo']}: {str(e)}")
 
 
+def iniciar_chrome_driver():
+    try:
+        opciones = Options()
+        opciones.add_argument("--headless")  # Ejecuta Chrome en modo headless
+        opciones.add_argument("--no-sandbox")  # Desactiva el modo sandbox para Chrome
+        opciones.add_argument("--disable-dev-shm-usage")  # Evita problemas en contenedores
+        opciones.add_argument("--disable-gpu")  # Deshabilita la aceleración por GPU
+        opciones.add_argument("--disable-extensions")  # Deshabilita las extensiones
+        opciones.add_argument('--single-process')  # Puede ayudar a reducir el uso de memoria en algunos casos
+        opciones.add_argument('--memory-pressure-off')  # Intenta reducir la presión de memoria de Chrome
+        opciones.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})  # Deshabilita la carga de imágenes
+        # Configura todas tus opciones de Chrome aquí
+        # ...
+        driver = webdriver.Chrome(options=opciones)
+        driver.set_page_load_timeout(120)
+        return driver
+    except WebDriverException as e:
+        help.escribir_log(f"Error al iniciar ChromeDriver: {str(e)}")
+        raise
+
+
 
 try:
     # Cargar variables de entorno desde el archivo .env
@@ -79,26 +101,28 @@ try:
 
 
     # Configura las opciones de Chrome para el modo headless
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Ejecuta Chrome en modo headless
-    chrome_options.add_argument("--no-sandbox")  # Desactiva el modo sandbox para Chrome
-    chrome_options.add_argument("--disable-dev-shm-usage")  # Evita problemas en contenedores
+    #chrome_options = Options()
+    #chrome_options.add_argument("--headless")  # Ejecuta Chrome en modo headless
+    #chrome_options.add_argument("--no-sandbox")  # Desactiva el modo sandbox para Chrome
+    #chrome_options.add_argument("--disable-dev-shm-usage")  # Evita problemas en contenedores
 
     #de prueba para optimizacion
-    chrome_options.add_argument("--disable-gpu")  # Deshabilita la aceleración por GPU
-    chrome_options.add_argument("--disable-extensions")  # Deshabilita las extensiones
+    #chrome_options.add_argument("--disable-gpu")  # Deshabilita la aceleración por GPU
+    #chrome_options.add_argument("--disable-extensions")  # Deshabilita las extensiones
     #chrome_options.add_argument("--disable-images")  # Esto no aplica ya que necesitas las imágenes
 
-    prefs = {"profile.managed_default_content_settings.images": 2}
-    chrome_options.add_experimental_option("prefs", prefs)
-    chrome_options.add_argument('--single-process')  # Puede ayudar a reducir el uso de memoria en algunos casos
-    chrome_options.add_argument('--memory-pressure-off')
+    #prefs = {"profile.managed_default_content_settings.images": 2}
+    #chrome_options.add_experimental_option("prefs", prefs)
+    #chrome_options.add_argument('--single-process')  # Puede ayudar a reducir el uso de memoria en algunos casos
+    #chrome_options.add_argument('--memory-pressure-off')
 
 
     # Inicializa el driver de Chrome con las opciones configuradas
-    driver = webdriver.Chrome(options=chrome_options)
-    driver.set_page_load_timeout(120)  
+    #driver = webdriver.Chrome(options=chrome_options)
+    #driver.set_page_load_timeout(120)  
 
+
+    
 
 
     hoy = datetime.datetime.now()
@@ -114,6 +138,8 @@ try:
 
     for id_region, region in list_regiones.items():
 
+        driver = iniciar_chrome_driver()
+
         help.escribir_log(f"Iniciando scraping para la región: {region['nombre']}")
         url = region["link"]
 
@@ -125,7 +151,12 @@ try:
                 if div.get('style') != "display: none;"]
 
         event_links = []
+
+
+        driver.quit()
         for div in event_divs:
+
+
             link = div.find("a")["href"]
             base_url = "https://ticketplus.cl"
 
@@ -159,7 +190,9 @@ try:
   
 
         for link in event_links:
+            
             try:
+                driver = iniciar_chrome_driver()
                 #time.sleep(1)
                 #driver = webdriver.Chrome(options=chrome_options)
                 id_evento += 1
@@ -288,9 +321,8 @@ try:
 
             finally:
                 print("terminamos con este evento")
-                #driver.quit()
+                driver.quit()
                  
-
     driver.quit()
     help.escribir_log("Finalización del proceso de scraping")
 
