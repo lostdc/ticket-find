@@ -1,27 +1,15 @@
 import os
-import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import json
 import time
-import random
 import datetime
-from selenium.common.exceptions import NoSuchElementException
 import os.path
-import unicodedata
-import shutil
-import glob
 import helper as help
 from selenium.webdriver.chrome.options import Options
 from pprint import pprint
 from dotenv import load_dotenv
-import pymongo
-import boto3
 from urllib.parse import urljoin
 from mongo_helper import conectar_mongo
 from s3_helper import conectar_s3, subir_imagen_s3
@@ -168,126 +156,136 @@ try:
   
 
         for link in event_links:
-            id_evento += 1
-            driver.get(link)
-            time.sleep(3)
-            page_content = driver.page_source
-            soup = BeautifulSoup(page_content, 'html.parser')
-            script_element = soup.find('script', {'type': 'application/ld+json'})
-
             try:
-                event_json = json.loads(script_element.string)
-            except Exception as e:
-                # Si no se puede cargar el JSON, lo guarda en un archivo de registro
-                print(f"Error al cargar JSON en evento {id_evento}: {str(e)}")
-                nombre_archivo_log = f'error_carga_json_evento_{id_region}_{region["nombre"]}_{id_evento}.json'
-                ruta_archivo_log = os.path.join(carpeta_fecha, nombre_archivo_log)
-                with open(ruta_archivo_log, 'w', encoding='utf-8') as f:
-                    f.write(f"Error al cargar JSON en evento {id_evento}: {str(e)}\n\n")
-                    f.write(script_element.string)
-                continue
-
-            event_json = json.loads(script_element.string)
-
-            titulo = event_json['name']
-            try:
-                fecha_hora = event_json['startDate']
-            except KeyError:
-                fecha_hora = ''
-
-            direccion_titulo = event_json['location']['name']
-            direccion_detalle = event_json['location']['address']['streetAddress']
-            detalle_evento = help.limpiar_cadena(event_json['description'].replace('\n', ' '))
-            imagen_url = event_json['image'].replace("https://ticketplus.cl/", "", 1) 
-
-            #evento_url = event_json['url'] este debe estar weando
-            latitud = event_json['location']['geo']['latitude']
-            longitud = event_json['location']['geo']['longitude']
-
-            #img_element = soup.find('img', {'alt': titulo})
-            img_element = imagen_url
-            if img_element:
-                #img_url = img_element['src'].split('?')[0]
-                img_url = img_element.split('?')[0]
-                extension_img = help.obtener_extension(img_url)
-
-                #subir a s3 borrar parte local
-                #en la siguiente local borrar
-                carpeta_regional = help.limpiar_y_formatear_nombre(f'eventos_{id_region}_{region["nombre"]}')
-
-
-                carpeta_imagenes = os.path.join(carpeta_fecha, carpeta_regional)
-                #os.makedirs(carpeta_imagenes, exist_ok=True)
-
-
-                nombre_imagen = help.limpiar_y_formatear_nombre(f'eventos_{id_region}_{region["nombre"]}_{id_evento}{extension_img}')
-
+                driver = webdriver.Chrome(options=chrome_options)
+                id_evento += 1
 
             
-                #ruta_imagen = os.path.join(carpeta_imagenes, nombre_imagen)
-                #help.descargar_imagen(img_url, ruta_imagen)
+                driver.get(link)
+                time.sleep(3)
+                page_content = driver.page_source
+                soup = BeautifulSoup(page_content, 'html.parser')
+                script_element = soup.find('script', {'type': 'application/ld+json'})
 
-                # Define la ruta en S3 donde quieres guardar la imagen
-                s3_file_path = f"eventos/{carpeta_fecha}/{carpeta_regional}/{nombre_imagen}"
+                try:
+                    event_json = json.loads(script_element.string)
+                except Exception as e:
+                    # Si no se puede cargar el JSON, lo guarda en un archivo de registro
+                    print(f"Error al cargar JSON en evento {id_evento}: {str(e)}")
+                    nombre_archivo_log = f'error_carga_json_evento_{id_region}_{region["nombre"]}_{id_evento}.json'
+                    ruta_archivo_log = os.path.join(carpeta_fecha, nombre_archivo_log)
+                    with open(ruta_archivo_log, 'w', encoding='utf-8') as f:
+                        f.write(f"Error al cargar JSON en evento {id_evento}: {str(e)}\n\n")
+                        f.write(script_element.string)
+                    continue
 
-                # Subir la imagen a S3
-                ###subir_imagen_s3(img_url, bucket_name, s3_file_path, s3)
+                event_json = json.loads(script_element.string)
+
+                titulo = event_json['name']
+                try:
+                    fecha_hora = event_json['startDate']
+                except KeyError:
+                    fecha_hora = ''
+
+                direccion_titulo = event_json['location']['name']
+                direccion_detalle = event_json['location']['address']['streetAddress']
+                detalle_evento = help.limpiar_cadena(event_json['description'].replace('\n', ' '))
+                imagen_url = event_json['image'].replace("https://ticketplus.cl/", "", 1) 
+
+                #evento_url = event_json['url'] este debe estar weando
+                latitud = event_json['location']['geo']['latitude']
+                longitud = event_json['location']['geo']['longitude']
+
+                #img_element = soup.find('img', {'alt': titulo})
+                img_element = imagen_url
+                if img_element:
+                    #img_url = img_element['src'].split('?')[0]
+                    img_url = img_element.split('?')[0]
+                    extension_img = help.obtener_extension(img_url)
+
+                    #subir a s3 borrar parte local
+                    #en la siguiente local borrar
+                    carpeta_regional = help.limpiar_y_formatear_nombre(f'eventos_{id_region}_{region["nombre"]}')
 
 
-                # Actualiza el JSON con la ruta de la imagen en S3
-                ruta_imagen_json = f"{s3_file_path}"
-                ruta_imagen_json_s23 = f"https://event-find.s3.amazonaws.com/{s3_file_path}"
+                    carpeta_imagenes = os.path.join(carpeta_fecha, carpeta_regional)
+                    #os.makedirs(carpeta_imagenes, exist_ok=True)
 
 
-                # Cambiar el formato de la ruta de la imagen en el JSON
-                ruta_imagen_json = f"assets/eventos/{carpeta_fecha}/images/{carpeta_regional}/{nombre_imagen}".replace("\\", "/")
-            else:
-                ruta_imagen_json = ''
+                    nombre_imagen = help.limpiar_y_formatear_nombre(f'eventos_{id_region}_{region["nombre"]}_{id_evento}{extension_img}')
 
-            latitud = event_json['location']['geo']['latitude']
-            longitud = event_json['location']['geo']['longitude']
 
-            evento = {
-                'titulo': help.quitar_html(titulo),
-                'fecha': fecha_hora.split('T')[0],
-                'hora': fecha_hora.split('T')[1] if len(fecha_hora.split('T')) > 1 else '',
-                'id_region': id_region,
-                'region': region["nombre"],
-                'direccionTitulo': direccion_titulo,
-                'direccionDetalle': direccion_detalle,
-                'detalleEvento': help.quitar_html(detalle_evento),
-                #'imagen': ruta_imagen_json,  # Actualiza el valor de la propiedad imagen en el JSON
-                'imagen' : ruta_imagen_json_s23,
-                'img_ticketplus' : img_url,
-                'evento_url': link,
-                'lat': latitud,  # Agrega la latitud
-                'long': longitud,  # Agrega la longitud
-                'logo' : 'logo_ticketplus.png',
-                'fecha_obtencion' : carpeta_fecha,
-                'activo' : True,
-                'ubicacion_geo': {  # Agrega la ubicación en formato GeoJSON
-                    'type': 'Point',
-                    'coordinates': [float(longitud), float(latitud)]
+                
+                    #ruta_imagen = os.path.join(carpeta_imagenes, nombre_imagen)
+                    #help.descargar_imagen(img_url, ruta_imagen)
+
+                    # Define la ruta en S3 donde quieres guardar la imagen
+                    s3_file_path = f"eventos/{carpeta_fecha}/{carpeta_regional}/{nombre_imagen}"
+
+                    # Subir la imagen a S3
+                    ###subir_imagen_s3(img_url, bucket_name, s3_file_path, s3)
+
+
+                    # Actualiza el JSON con la ruta de la imagen en S3
+                    ruta_imagen_json = f"{s3_file_path}"
+                    ruta_imagen_json_s23 = f"https://event-find.s3.amazonaws.com/{s3_file_path}"
+
+
+                    # Cambiar el formato de la ruta de la imagen en el JSON
+                    ruta_imagen_json = f"assets/eventos/{carpeta_fecha}/images/{carpeta_regional}/{nombre_imagen}".replace("\\", "/")
+                else:
+                    ruta_imagen_json = ''
+
+                latitud = event_json['location']['geo']['latitude']
+                longitud = event_json['location']['geo']['longitude']
+
+                evento = {
+                    'titulo': help.quitar_html(titulo),
+                    'fecha': fecha_hora.split('T')[0],
+                    'hora': fecha_hora.split('T')[1] if len(fecha_hora.split('T')) > 1 else '',
+                    'id_region': id_region,
+                    'region': region["nombre"],
+                    'direccionTitulo': direccion_titulo,
+                    'direccionDetalle': direccion_detalle,
+                    'detalleEvento': help.quitar_html(detalle_evento),
+                    #'imagen': ruta_imagen_json,  # Actualiza el valor de la propiedad imagen en el JSON
+                    'imagen' : ruta_imagen_json_s23,
+                    'img_ticketplus' : img_url,
+                    'evento_url': link,
+                    'lat': latitud,  # Agrega la latitud
+                    'long': longitud,  # Agrega la longitud
+                    'logo' : 'logo_ticketplus.png',
+                    'fecha_obtencion' : carpeta_fecha,
+                    'activo' : True,
+                    'ubicacion_geo': {  # Agrega la ubicación en formato GeoJSON
+                        'type': 'Point',
+                        'coordinates': [float(longitud), float(latitud)]
+                    }
                 }
-            }
 
 
-            # Llamar a procesar_evento en lugar de la lógica de inserción directa
+                # Llamar a procesar_evento en lugar de la lógica de inserción directa
 
-            #aqui falta img_url porque la saca de evento que es incorrecto no hay nada que descargar de hay
+                #aqui falta img_url porque la saca de evento que es incorrecto no hay nada que descargar de hay
 
-            procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, 3,False)
-
-
-            #eventos.append(evento)
-
-            #aqui realizaremos un corte para ingresar solo uno y probar
-            # Acceder a la colección 'eventos'
-            #coleccion_eventos = db.eventos
-            #coleccion_eventos.insert_one(evento)
+                procesar_evento(evento, s3, db, bucket_name, carpeta_fecha, 3,False)
 
 
-    driver.quit()
+                #eventos.append(evento)
+
+                #aqui realizaremos un corte para ingresar solo uno y probar
+                # Acceder a la colección 'eventos'
+                #coleccion_eventos = db.eventos
+                #coleccion_eventos.insert_one(evento)
+            except Exception as e:
+                print(f"Ocurrió un error al procesar el evento: {e}")
+                # Registra el error como sea apropiado
+
+            finally:
+                driver.quit()
+                 
+
+    #driver.quit()
     help.escribir_log("Finalización del proceso de scraping")
 
 except Exception as e:
