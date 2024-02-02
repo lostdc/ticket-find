@@ -140,6 +140,7 @@ def limpiar_nombre_archivo(nombre):
     nombre = nombre.replace('"', '')  # Elimina comillas dobles
     nombre = nombre.replace("'", '')  # Elimina apóstrofos
     nombre = nombre.replace('&', 'y')  # Reemplaza '&' con 'y'
+    nombre = nombre.replace('/', '-')  # Reemplaza '/' con '-'
     
     # Opcional: reemplazar espacios con guiones para mejorar la legibilidad de la URL
     nombre = nombre.replace(' ', '_')

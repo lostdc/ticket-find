@@ -1,0 +1,6 @@
+2024-02-02 00:33:10 - Inicio del proceso de scraping
+2024-02-02 00:33:10 - Iniciando scraping para la región: I Región de Tarapacá
+2024-02-02 00:33:13 - El evento ya existe actualizamos
+2024-02-02 00:33:13 - El evento ya existe actualizamos
+2024-02-02 00:33:13 - El evento ya existe actualizamos
+2024-02-02 00:33:13 - Iniciando scraping para la región: II Región de Antofagasta

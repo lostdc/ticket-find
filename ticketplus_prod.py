@@ -95,11 +95,21 @@ try:
     chrome_options.add_argument("--no-sandbox")  # Desactiva el modo sandbox para Chrome
     chrome_options.add_argument("--disable-dev-shm-usage")  # Evita problemas en contenedores
 
+    #de prueba para optimizacion
+    chrome_options.add_argument("--disable-gpu")  # Deshabilita la aceleración por GPU
+    chrome_options.add_argument("--disable-extensions")  # Deshabilita las extensiones
+    #chrome_options.add_argument("--disable-images")  # Esto no aplica ya que necesitas las imágenes
+
+    prefs = {"profile.managed_default_content_settings.images": 2}
+    chrome_options.add_experimental_option("prefs", prefs)
+
+
     # Inicializa el driver de Chrome con las opciones configuradas
     driver = webdriver.Chrome(options=chrome_options)
     driver.set_page_load_timeout(60)  
 
-    
+
+
     hoy = datetime.datetime.now()
 
     carpeta_fecha = hoy.strftime("%d-%m-%Y")
