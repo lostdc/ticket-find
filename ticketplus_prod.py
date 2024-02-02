@@ -157,6 +157,7 @@ try:
 
         for link in event_links:
             try:
+                time.sleep(5)
                 driver = webdriver.Chrome(options=chrome_options)
                 id_evento += 1
 
