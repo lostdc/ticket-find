@@ -97,6 +97,9 @@ try:
 
     # Inicializa el driver de Chrome con las opciones configuradas
     driver = webdriver.Chrome(options=chrome_options)
+    driver.set_page_load_timeout(60)  
+
+    
     hoy = datetime.datetime.now()
 
     carpeta_fecha = hoy.strftime("%d-%m-%Y")
