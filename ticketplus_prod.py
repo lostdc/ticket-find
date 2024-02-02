@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from urllib.parse import urljoin
 from mongo_helper import conectar_mongo
 from s3_helper import conectar_s3, subir_imagen_s3
+import gc
 
 
 
@@ -163,7 +164,8 @@ try:
                 #driver = webdriver.Chrome(options=chrome_options)
                 id_evento += 1
 
-            
+                driver.delete_all_cookies()
+                gc.collect() 
                 driver.get(link)
                 time.sleep(6)
                 page_content = driver.page_source
@@ -289,7 +291,7 @@ try:
                 #driver.quit()
                  
 
-    #driver.quit()
+    driver.quit()
     help.escribir_log("Finalización del proceso de scraping")
 
 except Exception as e:
